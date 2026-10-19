@@ -1,0 +1,35 @@
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy requirements and install
+COPY requirements.txt .
+RUN pip install --default-timeout=1000 --no-cache-dir -r requirements.txt
+
+# Install OpenCV dependencies (libgl1 and libglib2.0-0) and the Tesseract OCR
+# engine binary (required at runtime by pytesseract in ocr/ocr_engine.py and
+# ocr/layout/layout_detector.py — PaddleOCR was replaced with Tesseract
+# because paddleocr's imgaug dependency is unavailable in this project).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 \
+    libglib2.0-0 \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    tesseract-ocr-hin \
+    && rm -rf /var/lib/apt/lists/*
+
+
+# Copy application source code
+COPY . .
+
+# Expose FastAPI port
+EXPOSE 8000
+
+# Start application using Uvicorn with auto-reload for development
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

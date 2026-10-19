@@ -1,0 +1,559 @@
+
+
+
+
+kkkkk      setTenders((prev) => prev.map((t) => (t.id === selectedTenderId ? updated : t)));
+    } catch (err) {
+      alert("Error marking review complete");
+    }
+  };
+
+  const handleClearFilters = () => {
+    setFilters({
+      withinKeywords: "",
+      notInKeyword: "",
+      city: "",
+      valueFrom: "",
+      valueTo: "",
+      emdFrom: "",
+      emdTo: "",
+      closingFrom: "",
+      closingTo: "",
+      state: "",
+      sector: "",
+      tenderType: "",
+      agencyName: ""
+    });
+  };
+
+  const getNumericValue = (valStr: any) => {
+    if (typeof valStr === "number") return valStr;
+    if (!valStr) return 0;
+    const cleaned = String(valStr).toLowerCase().replace(/,/g, "").trim();
+    if (cleaned.includes("crore") || cleaned.includes("cr")) {
+      return parseFloat(cleaned) * 10000000;
+    }
+    if (cleaned.includes("lakh") || cleaned.includes("l")) {
+      return parseFloat(cleaned) * 100000;
+    }
+    return parseFloat(cleaned) || 0;
+  };
+
+  // Advanced filtration query matching logic
+  const filteredTenders = tenders.filter((tender) => {
+    // 1. Text Search matching title, ID, authority, department
+    const query = searchTerm.toLowerCase();
+    const matchesSearch =
+      !query ||
+      (tender.title || "").toLowerCase().includes(query) ||
+      (tender.id || "").toLowerCase().includes(query) ||
+      (tender.authorityName || "").toLowerCase().includes(query) ||
+      (tender.department?.toLowerCase() || "").includes(query);
+
+    if (!matchesSearch) return false;
+
+    // 2. Within Keywords filter
+    if (filters.withinKeywords) {
+      const k = filters.withinKeywords.toLowerCase();
+      const hasKeyword =
+        (tender.title || "").toLowerCase().includes(k) ||
+        (tender.snippet || "").toLowerCase().includes(k) ||
+        (tender.raw_ocr_text || "").toLowerCase().includes(k);
+      if (!hasKeyword) return false;
+    }
+
+    // 3. Not in Keyword filter
+    if (filters.notInKeyword) {
+      const k = filters.notInKeyword.toLowerCase();
+      const hasExcludedKeyword =
+        (tender.title || "").toLowerCase().includes(k) ||
+        (tender.snippet || "").toLowerCase().includes(k) ||
+        (tender.raw_ocr_text || "").toLowerCase().includes(k);
+      if (hasExcludedKeyword) return false;
+    }
+
+    // 4. City filter
+    if (filters.city && (tender.location_city || "").toLowerCase() !== filters.city.toLowerCase()) {
+      return false;
+    }
+
+    // 5. State filter
+    if (filters.state && (tender.location_state || "").toLowerCase() !== filters.state.toLowerCase()) {
+      return false;
+    }
+
+    // 6. Sector filter
+    if (filters.sector && (tender.sector || "").toLowerCase() !== filters.sector.toLowerCase()) {
+      return false;
+    }
+
+    // 7. Tender Type filter
+    if (filters.tenderType) {
+      if (filters.tenderType === "Live" && tender.review_status === "completed") {
+        return false;
+      }
+      if (filters.tenderType === "Completed" && tender.review_status !== "completed") {
+        return false;
+      }
+    }
+
+    // 8. Tender Value Range filter (in INR)
+    const valNum = getNumericValue(tender.tenderValue);
+    if (filters.valueFrom && valNum < parseFloat(filters.valueFrom)) {
+      return false;
+    }
+    if (filters.valueTo && valNum > parseFloat(filters.valueTo)) {
+      return false;
+    }
+
+    // 9. EMD Range filter (in INR)
+    const emdNum = getNumericValue(tender.emdAmount || "0");
+    if (filters.emdFrom && emdNum < parseFloat(filters.emdFrom)) {
+      return false;
+    }
+    if (filters.emdTo && emdNum > parseFloat(filters.emdTo)) {
+      return false;
+    }
+
+    // 10. Closing Date range filter
+    if (filters.closingFrom || filters.closingTo) {
+      const deadline = new Date(tender.deadline).getTime();
+      if (isNaN(deadline)) return false;
+      
+      if (filters.closingFrom) {
+        const fromDate = new Date(filters.closingFrom).getTime();
+        if (deadline < fromDate) return false;
+      }
+      if (filters.closingTo) {
+        const toDate = new Date(filters.closingTo).getTime();
+        if (deadline > toDate) return false;
+      }
+    }
+
+    return true;
+  });
+
+  const activeTender = tenders.find((t) => t.id === selectedTenderId);
+
+  // Sort filtered results
+  const getNumericValueRaw = (valStr: any) => {
+    if (typeof valStr === "number") return valStr;
+    if (!valStr) return 0;
+    const c = String(valStr).toLowerCase().replace(/,/g, "").trim();
+    if (c.includes("crore") || c.includes("cr")) return parseFloat(c) * 1e7;
+    if (c.includes("lakh") || c.includes("l")) return parseFloat(c) * 1e5;
+    return parseFloat(c) || 0;
+  };
+
+  const sortedTenders = [...filteredTenders].sort((a, b) => {
+    if (sortBy === "deadline") return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+    if (sortBy === "value") return getNumericValueRaw(b.tenderValue) - getNumericValueRaw(a.tenderValue);
+    if (sortBy === "ai_match") return (b.parse_confidence || 0) - (a.parse_confidence || 0);
+    // "updated" — most recently updated first
+    return new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime();
+  });
+
+  // Statistics Calculations
+  const statsLive = tenders.filter(t => t.parse_status === "completed" && t.review_status !== "completed").length;
+  const statsNew = tenders.filter(t => t.parse_status === "processing" || t.parse_status === "pending").length;
+  const statsClosing = tenders.filter(t => {
+    const days = Math.ceil((new Date(t.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    return days > 0 && days <= 7;
+  }).length;
+  const statsHighMatch = tenders.filter(t => t.parse_confidence >= 85).length;
+
+  if (userRole === null) {
+  eturn <RoleSelection onSelect={setUserRole} />;
+  }
+
+  if (userRole === "bidder") {
+    return <BidderPortal onExit={() => setUserRole(null)} />;
+  }
+
+  return (
+    <div
+      data-tv-app
+      className="h-screen w-screen flex flex-col overflow-hidden bg-[#0B0D0C]"
+    >
+
+      <WorkspaceHeader
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        filters={filters}
+        onFiltersChange={setFilters}
+        onClearFilters={handleClearFilters}
+        onUploadClick={() => setIsUploadModalOpen(true)}
+        isBackendConnected={isBackendConnected}
+        onRefreshClick={fetchTenders}
+        activeNavTab={activeNavTab}
+        onNavTabChange={setActiveNavTab}
+      />
+
+      <div className="flex flex-1 min-h-0">
+
+        <WorkspaceRail
+          activeTab={activeNavTab}
+          onTabChange={(tab) => {
+            setActiveNavTab(tab);
+            setSelectedTenderId(null);
+          }}
+          onUpload={() => setIsUploadModalOpen(true)}
+          onRefresh={fetchTenders}
+        />
+
+        <main
+          data-tv-main
+          className="flex-1 min-w-0 min-h-0 overflow-hidden"
+        >
+
+          {activeNavTab === "compliance" ? (
+
+            <ComplianceDashboard
+              submissionId="a3414dfa-0d06-4d93-a72e-1092902ea514"
+            />
+
+          ) : activeNavTab === "recommendations" ? (
+
+            <div className="h-full overflow-hidden p-5 lg:p-7">
+
+              <PQCRecommendationPanel
+                onSelectTender={(tenderNo) => {
+                  const matched = tenders.find(
+                    (t) =>
+                      t.id === tenderNo ||
+                      t.title.includes(tenderNo)
+                  );
+
+                  if (matched) {
+                    setActiveNavTab("tenders");
+                    setSelectedTenderId(matched.id);
+                  }
+                }}
+              />
+
+            </div>
+
+          ) : activeTender ? (
+
+            <TenderDetailPane
+              tender={activeTender}
+              onBack={() => setSelectedTenderId(null)}
+              onUpdateField={handleUpdateField}
+              onVerifyField={handleVerifyField}
+              onMarkReviewed={handleMarkReviewed}
+              onRetryParse={handleRetryParse}
+              onLinkDocument={handleLinkDocument}
+              onDelete={() =>
+                handleDeleteTender(activeTender.id)
+              }
+            />
+
+          ) : (
+
+            <div className="h-full overflow-y-auto px-5 py-6 lg:px-8 lg:py-7">
+
+              <div className="max-w-[1480px] mx-auto">
+
+                <div className="flex items-end justify-between gap-5">
+
+                  <div>
+
+                    <div className="tv-page-kicker">
+                      Tender intelligence
+                    </div>
+
+                    <div className="tv-page-title mt-2">
+                      Live opportunities
+                    </div>
+
+                    <div className="tv-page-description">
+                      A focused command centre for discovering,
+                      filtering and reviewing procurement opportunities.
+                    </div>
+
+                  </div>
+
+                  <div className="hidden sm:flex items-center gap-2">
+
+                    <div className="
+                      px-3 py-1.5
+                      rounded-full
+                      border border-[#29312D]
+                      bg-[#141916]
+                      text-[9px]
+                      text-[#78847D]
+                    ">
+                      {sortedTenders.length} opportunities
+                    </div>
+
+                    <div className="
+                      flex items-center gap-1.5
+                      px-3 py-1.5
+                      rounded-full
+                      border border-[rgba(255,170,110,.12)]
+                      bg-[rgba(255,170,110,.035)]
+                      text-[9px]
+                      text-[#A58A75]
+                    ">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#FFAA6E]" />
+                      AI connected
+                    </div>
+
+                  </div>
+
+                </div>
+
+                <div className="tv-metric-grid">
+
+                  {[
+                    ["Live", statsLive, "Currently active"],
+                    ["Processing", statsNew, "Being ingested"],
+                    ["Closing soon", statsClosing, "Next 7 days"],
+                    ["High match", statsHighMatch, "AI confidence ≥85%"],
+                  ].map(([label, value, description]) => (
+                    <div
+                      key={String(label)}
+                      className="tv-metric"
+                    >
+
+                      <div className="tv-metric-label">
+                        {label}
+                      </div>
+
+                      <div className="tv-metric-value">
+                        {value}
+                      </div>
+
+                      <div className="tv-metric-description">
+                        {description}
+                      </div>
+
+                    </div>
+                  ))}
+
+                </div>
+
+                <div className="tv-opportunity-toolbar">
+
+                  <div>
+                    <div className="tv-opportunity-title">
+                      Opportunity queue
+                    </div>
+
+                    <div className="tv-opportunity-meta">
+                      Sorted by {sortBy.replace("_", " ")}
+                    </div>
+                  </div>
+
+                  <div className="tv-opportunity-sort">
+
+                    <ArrowUpDown />
+
+                    <select
+                      value={sortBy}
+                      onChange={(event) =>
+                        setSortBy(
+                          event.target.value as typeof sortBy
+                        )
+                      }
+                    >
+                      <option value="updated">
+                        Recently updated
+                      </option>
+
+                      <option value="deadline">
+                        Closing soon
+                      </option>
+
+                      <option value="value">
+                        Highest value
+                      </option>
+
+                      <option value="ai_match">
+                        Highest AI match
+                      </option>
+                    </select>
+
+                  </div>
+
+                </div>
+
+                {loading ? (
+
+                  <div className="tv-opportunity-grid">
+
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <TenderCardSkeleton key={i} />
+                    ))}
+
+                  </div>
+
+                ) : sortedTenders.length === 0 ? (
+
+                  <div className="
+                    min-h-[380px]
+                    rounded-[18px]
+                    border border-dashed border-[#303934]
+                    bg-[#111513]
+                    flex flex-col
+                    items-center justify-center
+                    text-center
+                  ">
+
+                    <SearchX className="h-7 w-7 text-[#59645E]" />
+
+                    <div className="text-sm font-semibold text-[#D3DAD5] mt-4">
+                      No matching opportunities
+                    </div>
+
+                    <div className="text-[10px] text-[#68746D] mt-2">
+                      Clear or widen your filters to see more tenders.
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleClearFilters}
+                      className="
+                        mt-5
+                        px-3 py-1.5
+                        rounded-[9px]
+                        border border-[#39443E]
+                        bg-[#181D1A]
+                        text-[9px]
+                        font-semibold
+                        text-[#A1AAA5]
+                      "
+                    >
+                      Clear filters
+                    </button>
+
+                  </div>
+
+                ) : (
+
+                  <div className="tv-opportunity-grid">
+
+                    {sortedTenders.map((tender) => (
+                      <div
+                        key={tender.id}
+                        className="tv-opportunity-card"
+                      >
+
+                        <div className="tv-opportunity-accent" />
+
+                        <div className="tv-opportunity-status">
+                          {tender.parse_status === "processing"
+                            ? "PROCESSING"
+                            : tender.review_status === "completed"
+                              ? "REVIEWED"
+                              : "OPEN"}
+                        </div>
+
+                        <div className="tv-opportunity-title">
+                          {tender.title}
+                        </div>
+
+                        <div className="tv-opportunity-agency">
+                          {tender.authorityName || "Procurement authority"}
+                        </div>
+
+                        <div className="tv-opportunity-details">
+
+                          <div className="tv-opportunity-detail">
+                            <div className="tv-opportunity-detail-label">
+                              Value
+                            </div>
+
+                            <div className="tv-opportunity-detail-value">
+                              {tender.tenderValue || "—"}
+                            </div>
+                          </div>
+
+                          <div className="tv-opportunity-detail">
+                            <div className="tv-opportunity-detail-label">
+                              AI match
+                            </div>
+
+                            <div className="tv-opportunity-detail-value">
+                              {Math.round(tender.parse_confidence || 0)}%
+                            </div>
+                          </div>
+
+                          <div className="tv-opportunity-detail">
+                            <div className="tv-opportunity-detail-label">
+                              Location
+                            </div>
+
+                            <div className="tv-opportunity-detail-value">
+                              {tender.location || "—"}
+                            </div>
+                          </div>
+
+                          <div className="tv-opportunity-detail">
+                            <div className="tv-opportunity-detail-label">
+                              Deadline
+                            </div>
+
+                            <div className="tv-opportunity-detail-value">
+                              {tender.deadline
+                                ? new Date(
+                                    tender.deadline
+                                  ).toLocaleDateString()
+                                : "—"}
+                            </div>
+                          </div>
+
+                        </div>
+
+                        <div className="tv-opportunity-footer">
+
+                          <div className="tv-opportunity-date">
+                            {tender.updated_at || "Recently updated"}
+                          </div>
+
+                          <button
+                            type="button"
+                            className="tv-opportunity-open"
+                            onClick={() =>
+                              handleSelectTender(tender)
+                            }
+                          >
+                            Open tender
+                            <ArrowRight className="h-3 w-3" />
+                          </button>
+
+                        </div>
+
+                      </div>
+                    ))}
+
+                  </div>
+
+                )}
+
+              </div>
+
+            </div>
+
+          )}
+
+        </main>
+
+      </div>
+
+      <UploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() =>
+          setIsUploadModalOpen(false)
+        }
+        onUpload={handleUploadTender}
+      />
+
+      <NotifyChatBox />
+
+    </div>
+  );
+
+}
+
+export default App;

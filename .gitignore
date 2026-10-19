@@ -1,0 +1,93 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+*.egg-info/
+.installed.cfg
+*.egg
+*.manifest
+*.spec
+.coverage
+.coverage.*
+.cache
+coverage.xml
+*.cover
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Environment variables & secrets (CRITICAL)
+.env
+.env.*
+!.env.example
+*.env
+*.env.dev
+*.env.prod
+*.env.local
+*.env.*.local
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env.local
+frontend/.env.*.local
+
+# Company Profile & Proprietary Configuration
+config/company_profile.yaml
+config/*.local.yaml
+!config/company_profile.example.yaml
+
+# PaddleOCR & models
+.paddleocr/
+models/
+!backend/app/models/
+inference/
+whl/
+
+# Local tool & scratch artifacts
+tmc/
+scripts/test_extraction_runner.py
+scratch/
+
+# Storage (local dev data — not for version control)
+storage/
+storage/jobs/
+storage/logs/
+backend/app/storage/
+*.log
+
+# SQLite dev databases
+*.db
+*.db-shm
+*.db-wal
+
+# Frontend build artifacts
+frontend/tsconfig.tsbuildinfo
+frontend/dist/
+node_modules/
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# Fine-Tuning & Data Pipeline (Raw Corpus & Derived Datasets)
+tender-documents/
+pqr_matched_files/
+*.jsonl
+data/processed/
+data/corpus/
+output/
+
